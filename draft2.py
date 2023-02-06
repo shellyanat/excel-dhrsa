@@ -118,7 +118,7 @@ listTabs = [
     "Enkripsi File",
     "Dekripsi File"]
 
-whitespace = 35
+whitespace = 38
 
 tabs = st.tabs([s.center(whitespace,"\u2001") for s in listTabs])
 
