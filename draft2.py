@@ -11,9 +11,6 @@ import xlwt
 from xlwt.Workbook import *
 #from pyxlsb import open_workbook as open_xlsb
 
-
-from PIL import Image
-
 #page setting
 st.set_page_config(layout="wide")
 #page setting
