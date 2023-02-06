@@ -52,7 +52,7 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
 tabs_font_css = """
 <style>
 button[data-baseweb="tab"] {
-  font-size: 20px;
+  font-size: 28px;
 }
 </style>
 """
