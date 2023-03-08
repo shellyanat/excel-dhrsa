@@ -1,19 +1,16 @@
+#library
 import streamlit as st
-
-# For dealing with DataFrames
 import pandas as pd
 import numpy as np
 import random
-
-# For Download Result and Exce;
 from io import BytesIO
 import xlwt
 from xlwt.Workbook import *
-#from pyxlsb import open_workbook as open_xlsb
+from PIL import Image
 
-#page setting
+# P A G E  S E T T I N G ------------
 st.set_page_config(layout="wide")
-#page setting
+
 st.markdown('''
 <style>
 /*center metric label*/
@@ -52,7 +49,7 @@ div[data-testid="metric-container"] > label[data-testid="stMetricLabel"] > div {
 tabs_font_css = """
 <style>
 button[data-baseweb="tab"] {
-  font-size: 28px;
+  font-size: 20px;
 }
 </style>
 """
@@ -65,6 +62,7 @@ st.write(tabs_font_css, unsafe_allow_html=True)
 ---
 '''
 
+# F U N C T I O N ----------------------
 
 #fpb
 def FPB(m,n):
@@ -98,7 +96,7 @@ def InvMod(a,b):
         inv+=1
     return inv
 
-
+# dataframe to excel
 def to_excel(df):
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
@@ -111,17 +109,20 @@ def to_excel(df):
     processed_data = output.getvalue()
     return processed_data
 
-        
 
+
+
+# G U I  P Y T H O N --------------------------
 listTabs = [
     "Pembangkitan Kunci",
     "Enkripsi File",
     "Dekripsi File"]
 
-whitespace = 38
+whitespace = 28
 
 tabs = st.tabs([s.center(whitespace,"\u2001") for s in listTabs])
 
+# tab 0 : pembangkitan kunci
 with tabs[0]:
     with st.expander("LANGKAH-LANGKAH PENGGUNAAN"):
         '''
@@ -203,7 +204,10 @@ with tabs[0]:
             with col_2:
                 with st.expander('Kunci Privat'):
                     st.metric('Kunci Privat untuk Dekripsi', privatkey)
-             
+
+
+
+# tab 1 : enkripsi            
 with tabs[1]: 
     with st.expander("LANGKAH-LANGKAH PENGGUNAAN"):
         '''
@@ -213,7 +217,7 @@ with tabs[1]:
     
     2. Upload file yang akan dienkripsi dengan menekan tombol “Browse Files”
 
-    3. File akan otomatis diproses untuk enkripsi, tunggu sampai proses enkripsi selesai
+    3. Tekan tombol “Enkripsi File”, tunggu sampai proses enkripsi selesai
     
     4. Download file dengan menekan tombol “Download Encrypted File” untuk mendownload file yang telah dienkripsi.
         '''
@@ -224,19 +228,66 @@ with tabs[1]:
     if uploaded_file is not None:
    
         if st.button('Enkripsi File'):
-            sheets = pd.ExcelFile(uploaded_file).sheet_names
-                    
-            output = BytesIO()
-            writer = pd.ExcelWriter(output, engine='xlsxwriter')
-
+            #kunci publik
             public_key = pubkey.split()
             e = public_key[0]
             N1 = public_key[1]
 
-            for i, sheet in enumerate(sheets):
-                dataframe = pd.read_excel(uploaded_file, sheet_name = sheet, header = None)
-                dataframe = dataframe.astype(str)
+            #tipe file
+            filename=uploaded_file.name
+
+            #jika file excel
+            if filename[-4:]=='xlsx':
+                sheets = pd.ExcelFile(uploaded_file).sheet_names
+                    
+                output = BytesIO()
+                writer = pd.ExcelWriter(output, engine='xlsxwriter')
+
+                for i, sheet in enumerate(sheets):
+                    dataframe = pd.read_excel(uploaded_file, sheet_name = sheet, header = None)
+                    dataframe.fillna('nan-empty-values-kosong-dhrsa', inplace = True)
+                    
+                    dataframe = dataframe.astype(str)
+                    for col in dataframe.columns:
+                        for ind in dataframe.index:
+                            a = dataframe[col][ind] #read per cell
+                            a = str(a)
+                            pjg_a = len(a) #panjang value
+                            i = 0
+                            cipherteks = ''
+                            while i < pjg_a:
+                                e = int(e)
+                                N1 = int(N1)
+                                m = a[i] #read per character
+                                m = ord(m) #ubah character ke ascii
+                                c = (m**e % N1)
+                                if c < 100:
+                                    c = '0' + str(c)
+                                c = str(c)
+                                i = i+1
+                                cipherteks = cipherteks + c + ' '
+                            dataframe.loc[ind, col] = cipherteks 
+
+
+                    globals()['df' + str(i+1)] = dataframe.copy()
+                    wb = Workbook()
+                    worksheet = wb.add_sheet(sheet)
+                    globals()['df' + str(i+1)].to_excel(writer, header = False, index=False, sheet_name=sheet)
+                
+                writer.save()
+                processed_data = output.getvalue()
+                
+                data_xlsx = processed_data
+                st.download_button(label='📥 Download Encrypted File',
+                                data=data_xlsx,
+                                file_name= filename)
+            
+            #jika file csv
+            if filename[-3:]=='csv':
+                dataframe = pd.read_csv(uploaded_file, header = None)
                 dataframe.fillna('nan-empty-values-kosong-dhrsa', inplace = True)
+                
+                dataframe = dataframe.astype(str)
                 for col in dataframe.columns:
                     for ind in dataframe.index:
                         a = dataframe[col][ind] #read per cell
@@ -256,27 +307,20 @@ with tabs[1]:
                             i = i+1
                             cipherteks = cipherteks + c + ' '
                         dataframe.loc[ind, col] = cipherteks 
-                globals()['df' + str(i+1)] = dataframe.copy()
-
-            #for i, sheet in enumerate(sheets):
-                #workbook = writer.book
-                wb = Workbook()
-                worksheet = wb.add_sheet(sheet)
-                globals()['df' + str(i+1)].to_excel(writer, header = False, index=False, sheet_name=sheet)
-                #format1 = wb.add_format({'num_format': '0.00'}) 
-                #worksheet.set_column('A:A', None, format1)  
-            writer.save()
-            processed_data = output.getvalue()
 
 
-            data_xlsx = processed_data
-            st.download_button(label='📥 Download Encrypted File',
-                                data=data_xlsx,
-                                file_name= 'encrypted_file.xlsx')
+                data_csv = dataframe.to_csv(header = False, index=False)
+                st.download_button(label='📥 Download Encrypted File',
+                                data= data_csv,
+                                file_name= filename)
+        
         if uploaded_file is None:
             st.write('')
 
 
+
+
+# tab 2 : dekripsi
 with tabs[2]:
     with st.expander("LANGKAH-LANGKAH PENGGUNAAN"):
         '''
@@ -286,7 +330,7 @@ with tabs[2]:
     
     2. Upload file yang akan didekripsi dengan menekan tombol “Browse Files”
     
-    3. File akan otomatis diproses untuk dekripsi, tunggu sampai proses dekripsi selesai
+    3. Tekan tombol “Enkripsi File”, tunggu sampai proses dekripsi selesai
     
     4. Download file dengan menekan tombol “Download Decrypted File” untuk mendownload file yang telah didekripsi.    
         '''
@@ -297,19 +341,57 @@ with tabs[2]:
     if uploaded_file is not None:
 
         if st.button('Dekripsi File'):
-            sheets = pd.ExcelFile(uploaded_file).sheet_names
-                    
-            output = BytesIO()
-            writer = pd.ExcelWriter(output, engine='xlsxwriter')
-
+            #kunci privat
             privat_key = privkey.split()
             d = privat_key[0]
             N2 = privat_key[1]
 
-            for i, sheet in enumerate(sheets):
-                dataframe = pd.read_excel(uploaded_file, sheet_name = sheet, header = None)
-    
-                dataframe.fillna('nan-empty-values-kosong-dhrsa', inplace = True)
+            #tipe file
+            filename=uploaded_file.name
+
+            #jika file excel
+            if filename[-4:]=='xlsx':
+                sheets = pd.ExcelFile(uploaded_file).sheet_names
+                    
+                output = BytesIO()
+                writer = pd.ExcelWriter(output, engine='xlsxwriter')
+
+                for i, sheet in enumerate(sheets):
+                    dataframe = pd.read_excel(uploaded_file, sheet_name = sheet, header = None)
+                    
+                    for col in dataframe.columns:
+                        for ind in dataframe.index:
+                            d = int(d)
+                            N2 = int(N2)
+                            a = dataframe[col][ind] #read per cell
+                            b = a.split()
+                            cipher = []
+                            for z in b:
+                                cipher.append(int(z))
+                            plainteks = ''
+                            for c in cipher:
+                                m = (c**d % N2)
+                                m = chr(m)
+                                plainteks = plainteks + m
+                            dataframe.loc[ind, col] = plainteks 
+                            dataframe.replace("nan-empty-values-kosong-dhrsa", np.NaN, inplace=True)
+
+                    globals()['df' + str(i+1)] = dataframe.copy()
+                    wb = Workbook()
+                    worksheet = wb.add_sheet(sheet)
+                    globals()['df' + str(i+1)].to_excel(writer, header = False, index=False, sheet_name=sheet)
+                
+                writer.save()
+                processed_data = output.getvalue()
+                
+                
+                data_xlsx = processed_data
+                st.download_button(label='📥 Download Decrypted File',
+                                data=data_xlsx,
+                                file_name= filename)
+            #jika file csv
+            if filename[-3:]=='csv':
+                dataframe = pd.read_csv(uploaded_file, header = None)
                 for col in dataframe.columns:
                     for ind in dataframe.index:
                         d = int(d)
@@ -326,22 +408,12 @@ with tabs[2]:
                             plainteks = plainteks + m
                         dataframe.loc[ind, col] = plainteks 
                         dataframe.replace("nan-empty-values-kosong-dhrsa", np.NaN, inplace=True)
-                        
-                globals()['df' + str(i+1)] = dataframe.copy()
-                wb = Workbook()
-                worksheet = wb.add_sheet(sheet)
-                globals()['df' + str(i+1)].to_excel(writer, header = False, index=False, sheet_name=sheet)
-                
-            writer.save()
-            processed_data = output.getvalue()
-                
-                
-            data_xlsx = processed_data
-            st.download_button(label='📥 Download Decrypted File',
-                                data=data_xlsx,
-                                file_name= 'decrypted_file.xlsx')
 
-
+                data_csv = dataframe.to_csv(header = False, index=False)
+                st.download_button(label='📥 Download Decrypted File',
+                                data= data_csv,
+                                file_name= filename)
 
     if uploaded_file is None:
             st.write('')
+            
